@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guess Pulse — Interactive Number Game</title>
+  <style>
+    :root{
+      --bg1:#0f1020; --bg2:#1a1c3b; --accent:#7cf5ff; --text:#eaf7ff;
+      --warm:#ff7b7b; --hot:#ff3d3d; --cool:#6aa9ff; --cold:#3b6cff; --close:#ffd166; --perfect:#7cff7c;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100vh; color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      background: radial-gradient(1200px 600px at 20% 10%, #2a2d6a 0%, var(--bg2) 40%, var(--bg1) 100%);
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .app{
+      width:100%; max-width:900px; background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.12); border-radius:20px; backdrop-filter: blur(10px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      overflow:hidden;
+    }
+    header{
+      padding:20px 24px; display:flex; align-items:center; justify-content:space-between;
+      background: linear-gradient(90deg, rgba(124,245,255,0.15), rgba(255,125,125,0.12));
+      border-bottom:1px solid rgba(255,255,255,0.12);
+    }
+    .title{
+      font-weight:800; letter-spacing:0.5px; font-size:1.2rem;
+    }
+    .rainbow-btn{
+      --c1:#ff7b7b; --c2:#ffd166; --c3:#7cff7c; --c4:#6aa9ff; --c5:#b58cff;
+      background: conic-gradient(from 180deg, var(--c1), var(--c2), var(--c3), var(--c4), var(--c5), var(--c1));
+      color:#0b0b12; border:none; padding:10px 14px; border-radius:12px; font-weight:700;
+      box-shadow: inset 0 0 0 2px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.25);
+      cursor:pointer; transition: transform .08s ease, filter .2s ease;
+    }
+    .rainbow-btn:hover{ transform: translateY(-1px); filter: brightness(1.05) saturate(1.1); }
+    .rainbow-btn:active{ transform: translateY(1px) scale(0.98); }
+
+    .content{ padding:24px; display:grid; grid-template-columns: 1.2fr 1fr; gap:20px; }
+    @media (max-width:860px){ .content{ grid-template-columns: 1fr; } }
+
+    .panel{
+      background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+      border-radius:16px; padding:18px;
+    }
+
+    /* Input row */
+    .input-row{ display:flex; gap:12px; align-items:center; margin-top:8px; }
+    .guess-input{
+      flex:1; padding:14px 16px; border-radius:12px; border:1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.08); color:var(--text); font-size:1rem;
+      outline:none; transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .guess-input:focus{
+      border-color: var(--accent);
+      box-shadow: 0 0 0 6px rgba(124,245,255,0.12);
+    }
+    .primary{
+      background: linear-gradient(135deg, #6aa9ff, #b58cff);
+      color:white; border:none; padding:12px 16px; border-radius:12px; font-weight:700; cursor:pointer;
+      box-shadow: 0 10px 24px rgba(106,169,255,0.25);
+      transition: transform .08s ease, filter .2s ease;
+    }
+    .primary:hover{ transform: translateY(-1px); filter: brightness(1.05); }
+    .primary:active{ transform: translateY(1px) scale(0.98); }
+
+    /* Hint + thermometer */
+    .hint{
+      margin-top:14px; padding:12px; border-radius:12px; font-weight:700;
+      background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12);
+    }
+    .hint span{ font-weight:800; }
+    .thermo{
+      margin-top:14px; height:14px; border-radius:999px; overflow:hidden;
+      background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12);
+    }
+    .thermo-fill{
+      height:100%; width:0%; transition: width .35s ease, background .35s ease;
+      background: linear-gradient(90deg, var(--cold), var(--cool), var(--close), var(--hot));
+    }
+
+    /* Range narrowing */
+    .range{
+      margin-top:14px; display:flex; gap:8px; align-items:center; font-size:0.95rem;
+    }
+    .badge{
+      padding:6px 10px; border-radius:999px; background: rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,0.12); font-weight:700;
+    }
+
+    /* Attempts list */
+    .attempts{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .chip{
+      padding:8px 10px; border-radius:10px; font-weight:700; font-size:0.95rem;
+      background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12);
+    }
+    .chip.up::after{ content:" ↑"; color:#ffd166; }
+    .chip.down::after{ content:" ↓"; color:#6aa9ff; }
+
+    /* Stats */
+    .stats{ display:grid; grid-template-columns: repeat(3,1fr); gap:12px; margin-top:10px; }
+    .stat{
+      padding:12px; border-radius:12px; background: rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,0.12); text-align:center;
+    }
+    .stat .big{ font-size:1.4rem; font-weight:800; }
+
+    /* Difficulty */
+    .controls{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    select{
+      padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.08); color:var(--text);
+    }
+
+    /* Confetti */
+    .confetti{
+      position:fixed; inset:0; pointer-events:none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="Guess Pulse number game">
+    <header>
+      <div class="title">Guess Pulse — Number Guessing Game</div>
+      <button class="rainbow-btn" id="resetBtn" aria-label="Reset game">Reset</button>
+    </header>
+
+    <div class="content">
+      <!-- Left: Game -->
+      <section class="panel" aria-labelledby="gameTitle">
+        <h2 id="gameTitle">Make a guess</h2>
+
+        <div class="controls" aria-label="Game controls">
+          <label for="difficulty"><strong>Difficulty:</strong></label>
+          <select id="difficulty" aria-label="Select difficulty">
+            <option value="easy">Easy (1–50)</option>
+            <option value="medium" selected>Medium (1–100)</option>
+            <option value="hard">Hard (1–500)</option>
+            <option value="insane">Insane (1–1000)</option>
+          </select>
+          <button class="primary" id="newTargetBtn">New target</button>
+        </div>
+
+        <div class="input-row">
+          <input id="guessInput" class="guess-input" type="number" inputmode="numeric" placeholder="Enter your guess…" aria-label="Enter your guess" />
+          <button class="primary" id="guessBtn">Guess</button>
+        </div>
+
+        <div class="hint" id="hint" aria-live="polite">Start guessing to get hints.</div>
+
+        <div class="thermo" aria-label="Proximity meter">
+          <div class="thermo-fill" id="thermoFill"></div>
+        </div>
+
+        <div class="range">
+          <span class="badge" id="minBadge">Min: 1</span>
+          <span class="badge" id="maxBadge">Max: 100</span>
+          <span class="badge" id="bestBadge">Best diff: —</span>
+        </div>
+
+        <div class="attempts" id="attempts" aria-label="Attempt history"></div>
+      </section>
+
+      <!-- Right: Stats & Hints -->
+      <section class="panel" aria-labelledby="statsTitle">
+        <h2 id="statsTitle">Stats & smart hints</h2>
+        <div class="stats">
+          <div class="stat">
+            <div>Attempts</div>
+            <div class="big" id="attemptCount">0</div>
+          </div>
+          <div class="stat">
+            <div>Streak</div>
+            <div class="big" id="streak">0</div>
+          </div>
+          <div class="stat">
+            <div>Best</div>
+            <div class="big" id="bestScore">—</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="badge" id="smartHint">Smart hint appears after a few tries…</div>
+        </div>
+
+        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap">
+          <button class="rainbow-btn" id="nudgeBtn">Nudge</button>
+          <button class="rainbow-btn" id="revealRangeBtn">Reveal tighter range</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <canvas class="confetti" id="confetti"></canvas>
+
+  <script>
+    // Game state
+    const state = {
+      min: 1,
+      max: 100,
+      target: null,
+      attempts: [],
+      attemptCount: 0,
+      bestDiff: null,
+      streak: 0,
+      bestScore: null,
+      lastResultWin: false
+    };
+
+    // Elements
+    const difficultyEl = document.getElementById('difficulty');
+    const guessInput = document.getElementById('guessInput');
+    const guessBtn = document.getElementById('guessBtn');
+    const hintEl = document.getElementById('hint');
+    const thermoFill = document.getElementById('thermoFill');
+    const minBadge = document.getElementById('minBadge');
+    const maxBadge = document.getElementById('maxBadge');
+    const bestBadge = document.getElementById('bestBadge');
+    const attemptsEl = document.getElementById('attempts');
+    const attemptCountEl = document.getElementById('attemptCount');
+    const streakEl = document.getElementById('streak');
+    const bestScoreEl = document.getElementById('bestScore');
+    const smartHintEl = document.getElementById('smartHint');
+    const resetBtn = document.getElementById('resetBtn');
+    const newTargetBtn = document.getElementById('newTargetBtn');
+    const nudgeBtn = document.getElementById('nudgeBtn');
+    const revealRangeBtn = document.getElementById('revealRangeBtn');
+
+    // Difficulty ranges
+    const ranges = {
+      easy: [1, 50],
+      medium: [1, 100],
+      hard: [1, 500],
+      insane: [1, 1000]
+    };
+
+    function randInt(min, max){
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function setDifficulty(level){
+      const [min, max] = ranges[level] || ranges.medium;
+      state.min = min; state.max = max;
+      minBadge.textContent = `Min: ${min}`;
+      maxBadge.textContent = `Max: ${max}`;
+      newTarget(true);
+    }
+
+    function newTarget(resetRangeOnly=false){
+      state.target = randInt(state.min, state.max);
+      if(!resetRangeOnly){
+        state.attempts = [];
+        state.attemptCount = 0;
+        state.bestDiff = null;
+        state.lastResultWin = false;
+        hintEl.textContent = 'New target set. Start guessing!';
+        thermoFill.style.width = '0%';
+        thermoFill.style.background = 'linear-gradient(90deg, var(--cold), var(--cool), var(--close), var(--hot))';
+        attemptsEl.innerHTML = '';
+        attemptCountEl.textContent = '0';
+        bestBadge.textContent = 'Best diff: —';
+        smartHintEl.textContent = 'Smart hint appears after a few tries…';
+      }
+      guessInput.value = '';
+      guessInput.focus();
+    }
+
+    function proximityColor(diff){
+      if(diff === 0) return 'linear-gradient(90deg, var(--perfect), #7cff7c)';
+      if(diff <= 2) return 'linear-gradient(90deg, var(--hot), var(--close))';
+      if(diff <= 5) return 'linear-gradient(90deg, var(--close), var(--warm))';
+      if(diff <= 10) return 'linear-gradient(90deg, var(--cool), var(--close))';
+      return 'linear-gradient(90deg, var(--cold), var(--cool))';
+    }
+
+    function proximityText(diff, dir){
+      if(diff === 0) return 'Perfect! 🎯';
+      if(diff <= 2) return `Blazing hot — ${dir} just a hair away!`;
+      if(diff <= 5) return `Very close — ${dir} and you’ll nail it.`;
+      if(diff <= 10) return `Warm — ${dir} but within striking distance.`;
+      if(diff <= 20) return `Cool — ${dir} a fair bit.`;
+      return `Cold — ${dir} a lot.`;
+    }
+
+    function updateThermo(diff){
+      const maxSpan = Math.max(10, Math.floor((state.max - state.min) * 0.25));
+      const clamped = Math.min(diff, maxSpan);
+      const pct = Math.round(((maxSpan - clamped) / maxSpan) * 100);
+      thermoFill.style.width = pct + '%';
+      thermoFill.style.background = proximityColor(diff);
+    }
+
+    function addAttemptChip(guess, dir, diff){
+      const chip = document.createElement('div');
+      chip.className = 'chip ' + (dir === 'higher' ? 'up' : 'down');
+      chip.textContent = `${guess} (${diff})`;
+      attemptsEl.prepend(chip);
+    }
+
+    function updateStatsOnWin(){
+      state.streak += 1;
+      streakEl.textContent = state.streak;
+      const score = state.attemptCount;
+      if(state.bestScore === null || score < state.bestScore){
+        state.bestScore = score;
+        bestScoreEl.textContent = score;
+      } else {
+        bestScoreEl.textContent = state.bestScore ?? '—';
+      }
+    }
+
+    function updateSmartHint(){
+      if(state.attemptCount >= 3){
+        const avg = Math.round(
+          state.attempts.reduce((a,b)=>a+b.diff,0) / state.attempts.length
+        );
+        const trend = state.attempts.slice(-3).map(a=>a.dir).join(' → ');
+        smartHintEl.textContent = `Avg diff: ${avg}. Recent trend: ${trend || '—'}.`;
+      }
+    }
+
+    function clampToRange(val){
+      return Math.max(state.min, Math.min(state.max, val));
+    }
+
+    function guess(){
+      const raw = Number(guessInput.value);
+      if(!Number.isFinite(raw)){
+        hintEl.textContent = 'Enter a valid number.';
+        return;
+      }
+      const guessVal = clampToRange(Math.round(raw));
+      const diff = Math.abs(guessVal - state.target);
+      const dir = guessVal < state.target ? 'higher' : (guessVal > state.target ? 'lower' : 'equal');
+
+      state.attemptCount += 1;
+      attemptCountEl.textContent = state.attemptCount;
+
+      if(state.bestDiff === null || diff < state.bestDiff){
+        state.bestDiff = diff;
+        bestBadge.textContent = `Best diff: ${diff}`;
+      }
+
+      updateThermo(diff);
+
+      if(diff === 0){
+        hintEl.innerHTML = `<span>Perfect!</span> You found ${state.target} in ${state.attemptCount} attempts.`;
+        addAttemptChip(guessVal, 'equal', diff);
+        celebrate();
+        updateStatsOnWin();
+        state.lastResultWin = true;
+      } else {
+        const arrow = dir === 'higher' ? 'Go higher' : 'Go lower';
+        hintEl.innerHTML = `<span>${proximityText(diff, arrow)}</span> (${state.min}–${state.max})`;
+        addAttemptChip(guessVal, dir, diff);
+        state.lastResultWin = false;
+
+        // Narrow visible range suggestion (soft)
+        if(dir === 'higher') state.min = Math.max(state.min, guessVal + 1);
+        else state.max = Math.min(state.max, guessVal - 1);
+        minBadge.textContent = `Min: ${state.min}`;
+        maxBadge.textContent = `Max: ${state.max}`;
+      }
+
+      state.attempts.push({guess: guessVal, diff, dir});
+      updateSmartHint();
+      guessInput.select();
+    }
+
+    // Nudge: small directional hint without changing range
+    function nudge(){
+      const delta = state.target - (state.attempts.at(-1)?.guess ?? (state.min + state.max)/2);
+      const magnitude = Math.abs(delta);
+      const direction = delta > 0 ? 'higher' : 'lower';
+      const text = magnitude <= 3 ? 'micronudge' : magnitude <= 10 ? 'gentle nudge' : 'strong nudge';
+      smartHintEl.textContent = `Nudge: try slightly ${direction} (${text}).`;
+    }
+
+    // Reveal tighter range: hard clamp around target based on attempts
+    function revealTighterRange(){
+      const span = Math.max(5, Math.floor((state.max - state.min) * 0.15));
+      const newMin = clampToRange(state.target - span);
+      const newMax = clampToRange(state.target + span);
+      state.min = newMin; state.max = newMax;
+      minBadge.textContent = `Min: ${state.min}`;
+      maxBadge.textContent = `Max: ${state.max}`;
+      hintEl.textContent = `Range tightened to ${state.min}–${state.max}. Aim true.`;
+    }
+
+    // Confetti celebration
+    function celebrate(){
+      const canvas = document.getElementById('confetti');
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width = window.innerWidth;
+      const h = canvas.height = window.innerHeight;
+      const pieces = Array.from({length: 120}, ()=>({
+        x: Math.random()*w,
+        y: -20 - Math.random()*h*0.3,
+        r: 6 + Math.random()*10,
+        c: `hsl(${Math.random()*360}, 90%, 60%)`,
+        vy: 2 + Math.random()*3,
+        vx: -1 + Math.random()*2,
+        rot: Math.random()*Math.PI*2,
+        vr: -0.05 + Math.random()*0.1
+      }));
+      let t = 0, duration = 1800;
+      function draw(ts){
+        if(!t) t = ts;
+        const elapsed = ts - t;
+        ctx.clearRect(0,0,w,h);
+        pieces.forEach(p=>{
+          p.y += p.vy; p.x += p.vx; p.rot += p.vr;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.fillStyle = p.c;
+          ctx.fillRect(-p.r/2, -p.r/2, p.r, p.r);
+          ctx.restore();
+        });
+        if(elapsed < duration) requestAnimationFrame(draw);
+        else ctx.clearRect(0,0,w,h);
+      }
+      requestAnimationFrame(draw);
+    }
+
+    // Reset game (keep difficulty, reset streak only if last was loss)
+    function resetGame(){
+      state.streak = 0;
+      streakEl.textContent = '0';
+      state.bestScore = null;
+      bestScoreEl.textContent = '—';
+      setDifficulty(difficultyEl.value);
+      hintEl.textContent = 'Game reset. Fresh start!';
+    }
+
+    // Events
+    difficultyEl.addEventListener('change', e=> setDifficulty(e.target.value));
+    guessBtn.addEventListener('click', guess);
+    guessInput.addEventListener('keydown', e=>{
+      if(e.key === 'Enter') guess();
+    });
+    resetBtn.addEventListener('click', resetGame);
+    newTargetBtn.addEventListener('click', ()=> newTarget());
+    nudgeBtn.addEventListener('click', nudge);
+    revealRangeBtn.addEventListener('click', revealTighterRange);
+
+    // Init
+    setDifficulty(difficultyEl.value);
+    guessInput.focus();
+  </script>
+</body>
+</html>
